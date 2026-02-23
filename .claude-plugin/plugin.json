@@ -1,0 +1,8 @@
+{
+  "name": "dev-skills",
+  "version": "0.1.0",
+  "description": "General-purpose development skills: retrospectives, git workflow, investigation methodology, code quality assessment, and testing",
+  "author": { "name": "eumemic" },
+  "license": "MIT",
+  "keywords": ["skills", "workflow", "git", "testing", "debugging", "code-quality"]
+}
