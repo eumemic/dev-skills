@@ -113,12 +113,38 @@ No actionable findings this round.
 
 Return. (For iteration-mode invocations, this is the success path; the loop driver continues to merge.)
 
-## Phase 5 — Present surviving findings for approval
+## Phase 5 — Classify findings into autonomy zones
 
-If 1+ findings survived Phase 4, present a short structured summary via `AskUserQuestion`:
+Each surviving finding falls into one of two zones based on what it touches:
+
+### Autonomous zone — execute without approval
+
+The agent owns these decisions; surface only the results, after the fact:
+
+- **Memory entries** under `~/.claude/projects/<project>/memory/` and `MEMORY.md` index updates
+- **eumemic-company doc edits**: `principles/`, `patterns/`, `workflows/`, `lieutenants/`, `architecture/` — the institutional-knowledge layer
+- **Skill edits** to the loop driver, loop specializations, `/ship`, `/retro`, or any other skill in `dev-skills` (or wherever the relevant SKILL.md lives) — the agent's own behavioral substrate
+- **Personal scripts** under `~/.claude/scripts/` or similar private locations
+
+Why autonomous: these edits adjust how the agent operates without changing user-facing constellation services. The cost of a wrong edit is reversible (a future retro can undo or amend); the cost of forcing a sign-off on every wording change is friction.
+
+### Surface zone — present via AskUserQuestion, await approval
+
+Items that change service repos, live infrastructure, or external-facing state:
+
+- **GitHub issues filed on service repos**: aios, eumemic-ops, autodev, ant-proxy, oai-proxy, aios-web, and similar — anything visible to the constellation's users (today or future)
+- **PR-shaped changes** to service code (any code modification that would land via a PR on a service repo)
+- **Live infrastructure changes**: Coolify settings, DNS records, deployed env vars, secrets rotation
+- **Strategic redirects** suggested as retro findings: a new lieutenant charter, a major scope change to an existing workstream — these need chairman input even if codifiable
+
+### Mixed batches
+
+If a single retro has both zones: **execute the autonomous-zone items immediately**, then present the surface-zone items via `AskUserQuestion`. Report what was already done alongside the asks. Don't withhold the autonomous changes pending sign-off on the surface ones; they're independent.
+
+### Presentation shape (surface zone only)
 
 ```
-Retro found N action items worth codifying:
+Retro found N items in the surface zone:
 
 1. [Type] [Target] — [one-line description]
    Rationale: [why this clears the bar]
@@ -128,16 +154,21 @@ Retro found N action items worth codifying:
 Approve all / approve subset / discard all?
 ```
 
-Default to "approve subset" semantics — let the user opt in per item if there are multiple. **Don't auto-execute** even high-confidence findings; the user is the final filter.
+Default to "approve subset" semantics — let the user opt in per item if there are multiple.
 
-## Phase 6 — Execute approved items
+If all surviving findings are autonomous-zone, skip the AskUserQuestion entirely and proceed straight to Phase 6.
 
-Per item:
+## Phase 6 — Execute items
+
+For autonomous-zone items: execute immediately in Phase 5 (no waiting). For surface-zone items: execute only the approved subset from Phase 5.
+
+Per item type:
 
 - **Memory entries**: write the file under `~/.claude/projects/<project>/memory/` and update `MEMORY.md`.
-- **Skill edits**: edit the relevant SKILL.md. If invoked from a loop driver and the skill repo is the same as the current branch's repo, commit and push to the existing PR. Otherwise, the user can review the diff in the skill repo separately.
+- **eumemic-company doc edits**: edit the file in `~/code/eumemic-company/` (or via a worktree if the base is on a non-default branch). Commit with conventional-commits format and `Co-Authored-By: Claude` trailer. Push to master so lieutenants who clone the repo at session-create time pick up the change.
+- **Skill edits**: edit the relevant SKILL.md. If invoked from a loop driver and the skill repo is the same as the current branch's repo, commit and push to the existing PR. Otherwise, commit and push to the skill repo's default branch (or active feature branch if there's a pending one) with appropriate scope notes.
 - **Scripts**: create the file with executable permissions; if it belongs to the current branch's repo, commit it; otherwise stash under `~/.claude/scripts/` (or wherever the user keeps personal automation).
-- **Repo issues**: `gh issue create` on the target repo with a descriptive body; surface the issue URL.
+- **Repo issues** (surface zone, approved only): `gh issue create` on the target repo with a descriptive body; surface the issue URL.
 
 After execution, report what was done. For iteration-mode invocations, return control to the loop driver so it can wait for CI re-run (if a commit was added to the current PR) and proceed to its Phase 6 (merge).
 
