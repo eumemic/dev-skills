@@ -1,20 +1,35 @@
 ---
 name: retro
-description: Reflect on a slice of the current session (a single iteration or the whole session) to identify durable, codifiable learnings — and ship them only if they clear a quality bar. Most invocations produce nothing; that's the point. Use when the user asks to "run a retro", "do a retrospective", "reflect on the session", "what did you learn", "improve skills based on this session", "codify learnings", or when invoked from a loop driver (`/shovel-ready`, `/kaizen`, `/bughunt`) with `--scope=iteration`.
+description: Reflect on a slice of the current session (a single iteration, the whole session, or a natural pause point) to identify durable, codifiable learnings about workflow OR dev infrastructure — and ship them only if they clear a quality bar. Most invocations produce nothing; that's the point. Use when the user asks to "run a retro", "do a retrospective", "reflect on the session", "what did you learn", "improve skills based on this session", "codify learnings"; when invoked from a loop driver (`/shovel-ready`, `/kaizen`, `/bughunt`) with `--scope=iteration`; or **proactively at pause points** when the agent is waiting on async work (CI, autodev runs, monitor events) and has cycles to think meta.
 ---
 
-# /retro — quality-gated session retrospective
+# /retro — quality-gated retrospective
 
 Reflect on a slice of the conversation, **identify only durable codifiable learnings, and apply a quality gate** before proposing or executing changes. Most retros — especially per-iteration ones — should produce nothing actionable, and that's the healthy default.
 
+**Scope is broad: workflow AND dev infrastructure.** A retro should consider not just "did the agent's skills handle this well" but also "could the underlying tooling have been better" — autodev pipeline gaps, aios memory features, eumemic-ops audit checks, missing CLI affordances, etc. The action item types section below makes this explicit (constellation-wide issues, not just target-repo issues).
+
 ## Modes
 
-`/retro` runs in one of two scopes:
+`/retro` runs in one of three scopes:
 
 - **`--scope=iteration`** — invoked by the loop drivers (`/shovel-ready`, `/kaizen`, `/bughunt`) at Phase 5, between `/ship` CI-green and merge. Analyzes only this iteration's events (since branch creation). Action items that touch the current branch's repo get committed to the same PR; everything else is a side effect.
 - **`--scope=session`** (default) — invoked standalone by the user. Analyzes the full conversation history. Action items always go to whichever repo they belong to, separately from any in-flight work.
+- **`--scope=pause`** — agent-initiated at a natural pause point (waiting on autodev/CI/monitor, mid-coffee in the conversation flow). Analyzes the slice since the last retro or, if none this session, since the conversation start. Behaves like `--scope=session` but with a stricter quality gate: pause-point retros run frequently, so noise is more costly.
 
-If neither flag is passed, default to `session`. If invoked from a loop driver without `--scope`, that's a bug in the caller — assume `iteration` and continue.
+If neither flag is passed and there's no loop-driver caller, default to `session`. If invoked from a loop driver without `--scope`, that's a bug in the caller — assume `iteration` and continue.
+
+## When to self-invoke (pause mode)
+
+The agent should proactively trigger `/retro --scope=pause` when **all** of these hold:
+
+1. There's a natural pause: waiting on async work (autodev job, CI run, long Monitor task), or the user has just confirmed a milestone and there's no immediate next user message expected.
+2. The session has produced concrete events since the last retro: filings, failures, fixes, user corrections, surprising results.
+3. The agent has cycles — i.e., the pause is long enough that running a retro doesn't compete with reactive work.
+
+Self-invocation is signaled by saying "running /retro at this pause point" and proceeding through the phases. **The quality gate still applies** — most pause-point retros produce nothing, and that remains the healthy default. Self-invocation is permission to *consider*, not permission to *ship*.
+
+When in doubt, skip. A missed pause-point retro is invisible; a noisy one drains the user's attention budget.
 
 ## The bias to resist
 
@@ -41,7 +56,13 @@ Open-ended; pick the one that fits each finding:
 - **Memory entries** — feedback / project / reference / user types per the auto-memory schema. Best for: stable preferences, decisions with long horizons, pointers to external resources.
 - **Skill edits** — modifications to `loop-driver`, the three loop specializations, `/ship`, `/retro` itself, or any other skill that was active. Best for: workflow improvements that recur across iterations or sessions.
 - **Scripts** — small CLI utilities or one-liners committed to the repo (or to `~/.claude/scripts/`) that automate a friction point. Best for: repeated multi-step shell sequences.
-- **Repo issues** — feature requests filed on the *target* repo (the one the loop driver is working on), describing groundwork that would have made the iteration faster. Best for: missing infrastructure that's outside this PR's scope but would help future PRs.
+- **Constellation issues** — feature requests filed on **any repo in the constellation**, not just the loop driver's target: aios, eumemic-ops, ant-proxy, autodev, dev-skills, aios-web. Best for: missing dev-infrastructure that, if it existed, would have made this iteration (or future iterations) faster. Examples worth filing:
+  - autodev pipeline gaps surfaced during a real run (retry CLI, label hygiene, forward-reference handling).
+  - aios primitives that would simplify common agent workflows (memory durability, attachment validation, etc.).
+  - eumemic-ops audit checks for newly observed invariants.
+  - Missing skills or skill clarifications surfaced by friction in this session.
+
+The action item doesn't have to be in the repo you're working in. **"Could this have been easier if upstream X were different?" is always a legitimate question.**
 
 A single retro can produce a mix. Most retros produce zero. Some produce one. A retro producing three or more is suspicious — apply the quality gate harder.
 
@@ -71,6 +92,7 @@ Scan the analysis window for:
 - **Recurring friction** — the same problem hit two or three times in the window. Once is a fluke; twice is a pattern.
 - **Discoverability gaps** — skills that should have triggered but didn't, or commands the agent didn't know existed.
 - **Wasted work** — investigations that could have been short-circuited by a tool, script, or piece of context the agent didn't have.
+- **Infra papercuts** — things that worked but were rougher than they needed to be: a CLI gap, a missing audit check, an autodev pipeline phase that demanded manual recovery, an aios feature that *would* exist in a more-mature constellation. The kind of "I had to do X manually but a script/CLI/feature should have done it" friction. **These are the highest-leverage findings for `--scope=pause` retros**, since they accumulate across sessions before being captured.
 
 Each candidate finding gets a one-line summary and a proposed action item type. **Don't fix anything yet.**
 
@@ -128,10 +150,11 @@ For iteration-mode retros, skip Phase 7 unless the user has explicitly asked for
 ## Boundaries
 
 - **Don't write skill edits that are session-specific.** "When working on aios this week, X" is a memory entry, not a skill edit.
-- **Don't propose tracking issues on the *skill* repos** (dev-skills, etc.) for things that should be skill edits. If the change belongs in a skill, edit the skill.
-- **Don't expand the analysis window.** Iteration mode means iteration; if the user wants session mode, they invoke session mode.
+- **Don't propose tracking issues on the *skill* repos** (dev-skills, etc.) for things that should be skill edits. If the change belongs in a skill, edit the skill. (Constellation-issue filings on dev-skills are still legitimate for tooling gaps in the skill *infrastructure*, e.g., skill-discovery, plugin loading — not for "rewrite this skill.")
+- **Don't expand the analysis window.** Iteration mode means iteration; pause mode means since-last-retro; session mode means whole session.
 - **Don't skip the quality gate even when the user said "run a retro".** The user expects a retrospective; the user does NOT necessarily expect changes. "Nothing actionable this round" is a complete and successful retro.
 - **Don't argue with rejections.** If the user rejects a Phase 5 proposal, the finding is dropped. Don't re-propose it later in the same session.
+- **Don't auto-invoke `--scope=pause` more than once per ~5 user messages of substantive work.** Pause-mode is most valuable when meaningful events have accumulated; running it on every brief wait turns it into noise.
 
 ## When to escalate
 
