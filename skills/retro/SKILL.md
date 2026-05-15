@@ -125,17 +125,23 @@ The agent owns these decisions; surface only the results, after the fact:
 - **eumemic-company doc edits**: `principles/`, `patterns/`, `workflows/`, `lieutenants/`, `architecture/` — the institutional-knowledge layer
 - **Skill edits** to the loop driver, loop specializations, `/ship`, `/retro`, or any other skill in `dev-skills` (or wherever the relevant SKILL.md lives) — the agent's own behavioral substrate
 - **Personal scripts** under `~/.claude/scripts/` or similar private locations
+- **Issue filings on service repos** — aios, eumemic-ops, autodev, ant-proxy, oai-proxy, aios-web. Filing is communication, not unilateral change; surfacing a gap to the queue is exactly the agent's job
+- **Obvious-bug fixes** on service repos — bugs where the fix is "make the code work as designed" rather than "design something new." The events-pagination rename (aios#389) is the calibration example: query param name didn't match the response field name; the fix is one rename to make them match. PRs land via normal review, but opening the PR is autonomous
+- **Operational state changes** that have established recovery recipes — restarting a stuck container, pruning Docker cache, deduping env-var rows. The recipe IS the authorization
 
-Why autonomous: these edits adjust how the agent operates without changing user-facing constellation services. The cost of a wrong edit is reversible (a future retro can undo or amend); the cost of forcing a sign-off on every wording change is friction.
+Why autonomous: these adjust how the agent operates or unstick obvious-broken state without redesigning anything. The cost of a wrong edit is reversible (a future retro can undo, a follow-up PR can amend); the cost of forcing a sign-off on every wording change or obvious fix is friction that turns the agent into a bottleneck rather than a force-multiplier.
 
 ### Surface zone — present via AskUserQuestion, await approval
 
-Items that change service repos, live infrastructure, or external-facing state:
+Items that change the design or shape of the system:
 
-- **GitHub issues filed on service repos**: aios, eumemic-ops, autodev, ant-proxy, oai-proxy, aios-web, and similar — anything visible to the constellation's users (today or future)
-- **PR-shaped changes** to service code (any code modification that would land via a PR on a service repo)
-- **Live infrastructure changes**: Coolify settings, DNS records, deployed env vars, secrets rotation
-- **Strategic redirects** suggested as retro findings: a new lieutenant charter, a major scope change to an existing workstream — these need chairman input even if codifiable
+- **New API surfaces** on service repos: new endpoints, new query params (beyond fixing typo'd existing ones), new resource types, new schemas. *"Introducing"* is the operative word — fixing an existing one to match its documented contract is autonomous
+- **Architectural changes**: new layers, new services, new persistence boundaries, new auth models, anything that introduces a new conceptual element
+- **Live-infrastructure changes that lack an established recipe**: provisioning a new Coolify app, resizing a server, rotating long-lived secrets, configuring a new external integration
+- **Strategic redirects** suggested as retro findings: a new lieutenant charter, a major scope change to an existing workstream, killing a workstream
+- **Cost decisions**: upgrading server tiers, adding paid services, third-party API contracts
+
+The calibration question: *"is this introducing a new design element, or making an existing one work as designed?"* Former is surface zone; latter is autonomous.
 
 ### Mixed batches
 
