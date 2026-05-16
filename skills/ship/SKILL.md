@@ -53,6 +53,8 @@ If a code-reviewer subagent is configured (e.g., `pr-review-toolkit:code-reviewe
 - The relevant issue context if `--issue=N` was passed
 - Project-specific severity guidance from CLAUDE.md or memory
 
+If `--model=<value>` was passed, include `model: "<value>"` on the `Agent` call so the reviewer runs on the chosen Claude generation. Otherwise omit `model:` and let it inherit the session's model.
+
 The reviewer returns severity-scored findings. Apply actionable findings (typically sev ≥ 70) before opening the PR. Note sub-70 findings in the PR description for transparency — score triages but doesn't suppress.
 
 If the project's memory says "Post all code review findings, don't filter by score" or similar, follow that instead. Don't filter findings without explicit guidance.
@@ -177,6 +179,7 @@ If CI fails, surface the failing check names and short error excerpts. Do **not*
 - `--draft` — open the PR as draft.
 - `--no-simplify` — skip Phase 3.
 - `--no-review` — skip Phase 4.
+- `--model=<sonnet|opus|haiku>` — run the Phase 4 code-reviewer subagent on the named Claude generation. Default: inherit the session's model. Loop drivers (`/shovel-ready`, `/kaizen`, `/bughunt`) forward their own `--model=` here automatically.
 
 ## When to escalate
 

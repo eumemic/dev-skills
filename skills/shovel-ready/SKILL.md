@@ -20,7 +20,7 @@ This is a long-running loop. `ScheduleWakeup` is for **Wait Mode** and **CI fall
 
 ## Specialization-specific flags
 
-(See loop-driver for shared `--auto`. `/shovel-ready` does NOT expose `--once` because the queue's natural emptiness already provides a stop condition.)
+(See loop-driver for shared flags — `--auto`, `--model=`. `/shovel-ready` does NOT expose `--once` because the queue's natural emptiness already provides a stop condition. `--model=` is forwarded to `/ship`; shovel-ready itself has no direct subagent spawns.)
 
 - `/shovel-ready` — default; audit if queue is empty. Default merge behavior: wait for the user to merge in the GitHub UI.
 - `/shovel-ready --auto` — merge automatically once CI passes; skip the wait-for-user-merge step. Use for autonomous queue clearing.

@@ -51,7 +51,7 @@ Pick 4–6 dimensions appropriate to the codebase. The standard set:
 - A length cap (under 400 words per response) so synthesis stays manageable.
 - A clear deliverable: ranked list with file:line references and a one-line rationale per finding.
 
-Use `subagent_type: general-purpose` for the audit agents. They run parallel via a single message with multiple `Agent` tool calls.
+Use `subagent_type: general-purpose` for the audit agents. They run parallel via a single message with multiple `Agent` tool calls. If the loop was invoked with `--model=<value>` (see loop-driver flags), include `model: "<value>"` on each `Agent` call so every audit subagent runs on the chosen Claude generation; otherwise omit `model:` and let them inherit the session's model.
 
 ### Synthesize
 

@@ -29,6 +29,7 @@ All three specializations share these flags. Pass them through verbatim on every
 
 - `--auto` — merge automatically once CI passes (`gh pr merge --squash --delete-branch`). Default: wait for the user to merge in the GitHub UI.
 - `--once` — run a single iteration; do not `ScheduleWakeup` at the end. Default: loop indefinitely. (`/shovel-ready` doesn't expose `--once` because the queue's natural emptiness already provides a stop condition.)
+- `--model=<sonnet|opus|haiku>` — pin spawned subagents to a specific Claude generation. Applied at every subagent spawn point this loop owns: the specialization's Phase 1 audit agents, and the code-reviewer subagent inside `/ship` (passed through verbatim via `--model=`). The main session keeps whatever model it started on; this flag only affects `Agent`-tool calls. Default (omitted): no `model:` parameter — subagents inherit the session's model.
 - `--idle-count=<N>` — internal carry-over for the empty-iteration streak counter (Phase 8). Don't set manually.
 
 Flags compose. Self-arming wakes preserve every flag the user originally invoked with, plus mutations to `--idle-count`.
@@ -77,6 +78,7 @@ Invoke `dev-skills:ship` via the `Skill` tool. Pass:
 - `--commit-scope=<topmost-changed-module>`.
 - `--summary=<one-line description>` — used as the PR title.
 - `--issue=<N>` if applicable. Load-bearing for `/shovel-ready` (auto-close on merge); optional for `/bughunt` (only if the bug was already filed); not applicable to `/kaizen`.
+- `--model=<value>` if `--model=` was passed to the loop. `/ship` applies it to its code-reviewer subagent.
 
 `/ship` runs project checks, `/simplify` pass, code-review subagent (if configured), commits, pushes, opens the PR, and monitors CI until all checks are terminal. It returns when CI is green.
 

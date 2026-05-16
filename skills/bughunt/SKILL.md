@@ -56,7 +56,7 @@ The standard set (pick what fits the codebase):
 - A length cap (under 400 words per response).
 - A clear deliverable: ranked list with `(reachability × severity × provability) ÷ fix-scope` scores, file:line references, and the test sketch per finding.
 
-Use `subagent_type: general-purpose`. Run all agents parallel via a single message with multiple `Agent` tool calls.
+Use `subagent_type: general-purpose`. Run all agents parallel via a single message with multiple `Agent` tool calls. If the loop was invoked with `--model=<value>` (see loop-driver flags), include `model: "<value>"` on each `Agent` call so every audit subagent runs on the chosen Claude generation; otherwise omit `model:` and let them inherit the session's model.
 
 ### Synthesize
 
