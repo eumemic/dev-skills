@@ -26,6 +26,23 @@ If `git status` shows the default branch, stop and tell the caller. Don't auto-b
 
 If both staged and unstaged changes exist, ask the caller (via `AskUserQuestion`) whether to commit only staged or stage everything modified-tracked. Don't `git add -A` — that sweeps in runtime artifacts (`.logs/`, lockfiles, spool DBs).
 
+### Catch branch-behind-master before commit
+
+After confirming the default branch name, check whether the working branch has fallen behind:
+
+```bash
+default=<from gh repo view above>
+git fetch origin "$default"
+behind=$(git log "HEAD..origin/$default" --oneline)
+```
+
+If `behind` is non-empty, the branch will silently revert those commits on push (the reviewer will catch it, but you've wasted a round-trip). Surface via `AskUserQuestion` with options:
+- **Rebase now** (recommended) — `git pull --ff-only` if no committed work on the branch, else `git rebase "origin/$default"`. Resolve conflicts; re-run Phase 2 checks after.
+- **Proceed anyway** — only if the missing commits are unrelated AND you're sure they won't conflict semantically (rare).
+- **Abort** — caller decides what to do.
+
+Don't auto-rebase silently — a force-push surprise is worse than a quick confirmation. The exception: if HEAD has no commits of its own (uncommitted-only working tree on a freshly-cut branch), `git pull --ff-only` is safe and the caller probably wants it without being asked.
+
 ## Phase 2 — Run all checks
 
 Read `CLAUDE.md` (project root) for the project's check commands. The standard pattern is "do all three before every commit":
@@ -37,13 +54,24 @@ Run them in parallel where possible. If anything fails, **stop and report**. The
 
 If the project has e2e or integration tests gated on Docker or external services, **don't run them as part of /ship**. CI runs them on push. Local pre-push e2e gating is friction without payoff. (Exception: if the change touches migrations / alembic / DB schema, run `alembic heads` or equivalent locally to catch head-collision issues mypy can't see.)
 
-## Phase 3 — Structural-quality pass (optional)
+## Phase 3 — Structural-quality pass
 
 If a `/simplify` skill (or equivalent: "kaizen", "code-cleanup", "polish") is in the available-skills list, invoke it now via the `Skill` tool. It typically launches parallel review agents (reuse / quality / efficiency) and applies their findings inline.
 
 If no `/simplify` skill exists, do a manual self-review: scan the diff for redundant state, copy-paste with slight variation, dead code paths, comments explaining WHAT instead of WHY, and the project's flagged anti-patterns from CLAUDE.md.
 
-If the change is a one-line typo fix or trivial config bump, skip this phase — the overhead exceeds the value. Pass `--no-simplify` to skip explicitly.
+### Size-aware `--no-simplify` guard
+
+`--no-simplify` skips this phase. **Don't honor it blindly** — running /simplify after the PR is open (or, worse, after it's merged) creates orphaned cleanup commits and a second PR. Before skipping, compute the diff size:
+
+```bash
+git diff --shortstat HEAD  # or "origin/<default>...HEAD" if commits already exist
+```
+
+- **Trivial** (≤ 1 file changed, ≤ ~10 lines): skip Phase 3 silently per `--no-simplify`. This is what the flag exists for.
+- **Non-trivial** (> 1 file OR > ~10 lines): `--no-simplify` is suspicious. Surface to caller via `AskUserQuestion`: "diff is N files / M lines — confirm `--no-simplify`?" Options: run /simplify anyway / proceed without it / abort.
+
+Project memory may say "always run /simplify before opening a PR" — honor that over `--no-simplify` for non-trivial diffs without explicit override.
 
 ## Phase 4 — Code-review pass (optional)
 
@@ -177,7 +205,7 @@ If CI fails, surface the failing check names and short error excerpts. Do **not*
 - `--commit-scope=<scope>` — pin the scope.
 - `--summary=<one-line>` — caller-provided one-line summary for the title; otherwise inferred from the diff.
 - `--draft` — open the PR as draft.
-- `--no-simplify` — skip Phase 3.
+- `--no-simplify` — skip Phase 3 (honored silently only for trivial diffs; non-trivial diffs prompt for confirmation).
 - `--no-review` — skip Phase 4.
 - `--model=<sonnet|opus|haiku>` — run the Phase 4 code-reviewer subagent on the named Claude generation. Default: inherit the session's model. Loop drivers (`/shovel-ready`, `/kaizen`, `/bughunt`) forward their own `--model=` here automatically.
 

@@ -113,12 +113,44 @@ No actionable findings this round.
 
 Return. (For iteration-mode invocations, this is the success path; the loop driver continues to merge.)
 
-## Phase 5 — Present surviving findings for approval
+## Phase 5 — Classify findings into autonomy zones
 
-If 1+ findings survived Phase 4, present a short structured summary via `AskUserQuestion`:
+Each surviving finding falls into one of two zones based on what it touches:
+
+### Autonomous zone — execute without approval
+
+The agent owns these decisions; surface only the results, after the fact:
+
+- **Memory entries** under `~/.claude/projects/<project>/memory/` and `MEMORY.md` index updates
+- **eumemic-company doc edits**: `principles/`, `patterns/`, `workflows/`, `lieutenants/`, `architecture/` — the institutional-knowledge layer
+- **Skill edits** to the loop driver, loop specializations, `/ship`, `/retro`, or any other skill in `dev-skills` (or wherever the relevant SKILL.md lives) — the agent's own behavioral substrate
+- **Personal scripts** under `~/.claude/scripts/` or similar private locations
+- **Issue filings on service repos** — aios, eumemic-ops, autodev, ant-proxy, oai-proxy, aios-web. Filing is communication, not unilateral change; surfacing a gap to the queue is exactly the agent's job
+- **Obvious-bug fixes** on service repos — bugs where the fix is "make the code work as designed" rather than "design something new." The events-pagination rename (aios#389) is the calibration example: query param name didn't match the response field name; the fix is one rename to make them match. PRs land via normal review, but opening the PR is autonomous
+- **Operational state changes** that have established recovery recipes — restarting a stuck container, pruning Docker cache, deduping env-var rows. The recipe IS the authorization
+
+Why autonomous: these adjust how the agent operates or unstick obvious-broken state without redesigning anything. The cost of a wrong edit is reversible (a future retro can undo, a follow-up PR can amend); the cost of forcing a sign-off on every wording change or obvious fix is friction that turns the agent into a bottleneck rather than a force-multiplier.
+
+### Surface zone — present via AskUserQuestion, await approval
+
+Items that change the design or shape of the system:
+
+- **New API surfaces** on service repos: new endpoints, new query params (beyond fixing typo'd existing ones), new resource types, new schemas. *"Introducing"* is the operative word — fixing an existing one to match its documented contract is autonomous
+- **Architectural changes**: new layers, new services, new persistence boundaries, new auth models, anything that introduces a new conceptual element
+- **Live-infrastructure changes that lack an established recipe**: provisioning a new Coolify app, resizing a server, rotating long-lived secrets, configuring a new external integration
+- **Strategic redirects** suggested as retro findings: a new lieutenant charter, a major scope change to an existing workstream, killing a workstream
+- **Cost decisions**: upgrading server tiers, adding paid services, third-party API contracts
+
+The calibration question: *"is this introducing a new design element, or making an existing one work as designed?"* Former is surface zone; latter is autonomous.
+
+### Mixed batches
+
+If a single retro has both zones: **execute the autonomous-zone items immediately**, then present the surface-zone items via `AskUserQuestion`. Report what was already done alongside the asks. Don't withhold the autonomous changes pending sign-off on the surface ones; they're independent.
+
+### Presentation shape (surface zone only)
 
 ```
-Retro found N action items worth codifying:
+Retro found N items in the surface zone:
 
 1. [Type] [Target] — [one-line description]
    Rationale: [why this clears the bar]
@@ -128,16 +160,21 @@ Retro found N action items worth codifying:
 Approve all / approve subset / discard all?
 ```
 
-Default to "approve subset" semantics — let the user opt in per item if there are multiple. **Don't auto-execute** even high-confidence findings; the user is the final filter.
+Default to "approve subset" semantics — let the user opt in per item if there are multiple.
 
-## Phase 6 — Execute approved items
+If all surviving findings are autonomous-zone, skip the AskUserQuestion entirely and proceed straight to Phase 6.
 
-Per item:
+## Phase 6 — Execute items
+
+For autonomous-zone items: execute immediately in Phase 5 (no waiting). For surface-zone items: execute only the approved subset from Phase 5.
+
+Per item type:
 
 - **Memory entries**: write the file under `~/.claude/projects/<project>/memory/` and update `MEMORY.md`.
-- **Skill edits**: edit the relevant SKILL.md. If invoked from a loop driver and the skill repo is the same as the current branch's repo, commit and push to the existing PR. Otherwise, the user can review the diff in the skill repo separately.
+- **eumemic-company doc edits**: edit the file in `~/code/eumemic-company/` (or via a worktree if the base is on a non-default branch). Commit with conventional-commits format and `Co-Authored-By: Claude` trailer. Push to master so lieutenants who clone the repo at session-create time pick up the change.
+- **Skill edits**: edit the relevant SKILL.md. If invoked from a loop driver and the skill repo is the same as the current branch's repo, commit and push to the existing PR. Otherwise, commit and push to the skill repo's default branch (or active feature branch if there's a pending one) with appropriate scope notes.
 - **Scripts**: create the file with executable permissions; if it belongs to the current branch's repo, commit it; otherwise stash under `~/.claude/scripts/` (or wherever the user keeps personal automation).
-- **Repo issues**: `gh issue create` on the target repo with a descriptive body; surface the issue URL.
+- **Repo issues** (surface zone, approved only): `gh issue create` on the target repo with a descriptive body; surface the issue URL.
 
 After execution, report what was done. For iteration-mode invocations, return control to the loop driver so it can wait for CI re-run (if a commit was added to the current PR) and proceed to its Phase 6 (merge).
 
