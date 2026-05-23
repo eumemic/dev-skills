@@ -17,6 +17,7 @@ This document defines the common skeleton for an autonomous-development loop dri
 | 1.5 | Specialization | **Quality gate.** Top candidate must clear a specialization-defined bar; otherwise the iteration ships nothing (a normal outcome). |
 | 2 | loop-driver | Branch and plan. |
 | 3 | Specialization | **Implement.** Specialization-specific discipline (TDD vs. structural-only vs. labeled-issue-feature work). |
+| 3.5 | loop-driver | Sync with master before `/ship` (rebase if branch is behind). |
 | 4 | loop-driver | Hand off to `dev-skills:ship`. |
 | 5 | loop-driver | `/retro` pass — iteration mode. |
 | 6 | loop-driver | Merge (auto or wait-for-user). |
@@ -69,7 +70,24 @@ Branch prefix and slug convention is specialization-specific:
 - `/kaizen`: `kaizen/<3–5-word-kebab-case>` naming the **target** (e.g., `kaizen/collapse-defer-retry-wake`).
 - `/bughunt`: `bughunt/<short-symptom-slug>` naming the **symptom**, not the fix (e.g., `bughunt/missing-roster-on-group-rename`).
 
-Plan with `TaskCreate`: implement → /ship → /retro → merge → loop control. Mark `in_progress` as you start each step.
+Plan with `TaskCreate`: implement → sync-with-master → /ship → /retro → merge → loop control. Mark `in_progress` as you start each step.
+
+## Phase 3.5 — Sync with master before `/ship`
+
+Master may have advanced while this iteration was in flight — Phase 2 branched off the latest default, but an iteration taking several minutes can collide with a concurrent merge. The PR's CI runs against the merge of your branch into current master, so a stale base can fail on tests, schemas, or interfaces that master has updated mid-iteration. Rebase to bring the branch forward before handing off:
+
+```
+default=$(gh repo view --json defaultBranchRef --jq .defaultBranchRef.name)
+git fetch origin "$default"
+behind=$(git rev-list HEAD..origin/$default --count)
+if [ "$behind" -gt 0 ]; then
+    git rebase "origin/$default"
+fi
+```
+
+If the rebase produces conflicts, surface them via `AskUserQuestion` — don't auto-resolve. After a successful rebase, re-run the project's standard checks (mypy/ruff/pytest or equivalent) since the base shifted: the new master may contain changes that interact with your diff in ways that weren't tested against the old base.
+
+If the rebase happens but the checks now fail, treat it as a blocker — diagnose whether the failure is caused by the rebase (e.g., a master change that conflicts semantically with your diff even though git merged cleanly) or by an unrelated environmental issue, and decide whether to fix-forward or abandon.
 
 ## Phase 4 — Hand off to `dev-skills:ship`
 
