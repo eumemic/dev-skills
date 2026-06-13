@@ -17,7 +17,7 @@ General-purpose development skills for Claude Code: an autonomous loop driver + 
 | **shovel-ready** | "/shovel-ready", "drain the shovel-ready queue" | One GitHub issue-label queue iteration: take the highest-ROI labeled issue (TDD, /ship, /retro, merge), or audit-and-refill when empty. |
 | **kaizen** | "/kaizen", "accidental-complexity reduction" | One audit-and-simplify iteration: parallel-agent codebase audit → highest-ROI simplification → /ship → /retro → merge. |
 | **bughunt** | "/bughunt", "speculative bug-hunting" | One bug-discovery iteration: risk-pattern audit → hypothesis → red test → root-cause fix → /ship → /retro → merge. |
-| **kaikaku** | "/kaikaku", "architectural simplification" | One architectural-simplification iteration: whole-system recon → Chesterton's-Fence steelman → file a groomed design-issue. Grooms, doesn't build (the architectural-altitude sibling of kaizen). |
+| **kaikaku** | "/kaikaku", "architectural simplification", "correctness by construction" | One architectural iteration: whole-system recon → Chesterton's-Fence steelman → autonomously file groomed design-issue(s) for every candidate that clears the gate (multi-output, no approval step), labeled by validation. Spans both architectural cells — simplify-and-beautify *and* correctness-by-construction (foreclose a defect-class by making an illegal state unrepresentable). Grooms, doesn't build (the architectural-altitude sibling of kaizen). |
 | **build-cycle** | (not user-invokable) | Reference: the single-iteration build skeleton (branch → /ship → /retro → merge → declare outcome) shared by shovel-ready / kaizen / bughunt. |
 
 ### Pipeline + utilities

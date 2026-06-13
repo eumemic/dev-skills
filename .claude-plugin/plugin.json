@@ -1,6 +1,6 @@
 {
   "name": "dev-skills",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "General-purpose development skills: an autonomous loop driver (/loop) + iteration skills (kaizen, bughunt, shovel-ready, kaikaku), ship pipeline, retrospectives, git workflow, investigation, and testing",
   "author": { "name": "eumemic" },
   "license": "MIT",
