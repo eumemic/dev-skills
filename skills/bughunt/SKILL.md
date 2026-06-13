@@ -1,23 +1,23 @@
 ---
 name: bughunt
-description: Continuous speculative bug-hunting — audit codebase against project invariants and risk patterns via parallel agents, form hypothesis, prove with failing test, fix at root cause, hand off to /ship, run /retro, then loop. Use when invoked as `/bughunt`. Loops by default; pass `--once` for a single iteration. Pass `--auto` to merge automatically once CI is green; default is to wait for the user to merge in the GitHub UI. Project-agnostic; reads risk dimensions from CLAUDE.md key-invariants and project memory.
+description: One iteration of speculative bug-hunting — audit codebase against project invariants and risk patterns via parallel agents, form hypothesis, prove with failing test, fix at root cause, hand off to /ship, run /retro, merge, declare the outcome. Use when invoked as `/bughunt` (runs one iteration); use `/loop bughunt` to run it as an autonomous loop. Pass `--auto` to merge automatically once CI is green; default is to wait for the user to merge in the GitHub UI. Project-agnostic; reads risk dimensions from CLAUDE.md key-invariants and project memory.
 ---
 
-# /bughunt — continuous hypothesis-driven bug discovery loop
+# /bughunt — one hypothesis-driven bug-discovery iteration
 
-You're driving an autonomous loop that scans the codebase for risk patterns, forms specific bug hypotheses, proves them with red tests, fixes at root cause, ships, retros, then either merges or waits.
+You run **one iteration**: scan the codebase for risk patterns, form a specific bug hypothesis, prove it with a red test, fix at root cause, ship, retro, merge (or hand to the user), and declare the outcome. `/loop bughunt` runs this on an autonomous loop.
 
-This skill is a thin specialization over the shared loop-driver framework. **Read `dev-skills:loop-driver` for the shared phases (branching, /ship handoff, /retro, merge, idle escalation, flag passthrough).** This file owns:
+This skill is a thin specialization over the shared **build-cycle** skeleton. **Read `dev-skills:build-cycle` for the shared iteration phases (branching, /ship handoff, /retro, merge, declaring the outcome).** Looping — cadence, idle escalation, re-arming — is owned by `/loop`. This file owns:
 
 - **Phase 1** — target acquisition (parallel-agent risk-pattern audit and hypothesis formation).
 - **Phase 1.5** — the bughunt-specific quality gate (provability + reachability + impact).
 - **Phase 3** — the bughunt-specific implementation discipline (red→green TDD, root-cause fix).
 
-Everything else — flags, branching, `/ship` invocation, `/retro` pass, merge handling, idle escalation — lives in `loop-driver`.
+Everything else — flags, branching, `/ship` invocation, `/retro` pass, merge handling, and the closing `LOOP-OUTCOME` — lives in `build-cycle`; the loop that re-runs this iteration lives in `/loop`.
 
 ## Specialization-specific invariants
 
-(See loop-driver for the shared invariants. These are *additional* to those.)
+(See build-cycle for the shared invariants. These are *additional* to those.)
 
 - **TDD is mandatory and load-bearing.** No bug ships without a red→green test capturing the exact symptom. The test must fail with the precise error your hypothesis predicts, and the fix must be what flips it.
 - **Skip unprovable hypotheses silently.** If you can't write a failing test that captures the bug, the hypothesis is too vague or the bug doesn't exist. Drop it and pick the next candidate. Don't ship "I think there might be a problem here" speculation. Don't open a tracking issue — wrong hypotheses are routine and silent dispatch is cheaper than noise.
@@ -56,17 +56,17 @@ The standard set (pick what fits the codebase):
 - A length cap (under 400 words per response).
 - A clear deliverable: ranked list with `(reachability × severity × provability) ÷ fix-scope` scores, file:line references, and the test sketch per finding.
 
-Use `subagent_type: general-purpose`. Run all agents parallel via a single message with multiple `Agent` tool calls. If the loop was invoked with `--model=<value>` (see loop-driver flags), include `model: "<value>"` on each `Agent` call so every audit subagent runs on the chosen Claude generation; otherwise omit `model:` and let them inherit the session's model.
+Use `subagent_type: general-purpose`. Run all agents parallel via a single message with multiple `Agent` tool calls. If invoked with `--model=<value>` (see build-cycle flags), include `model: "<value>"` on each `Agent` call so every audit subagent runs on the chosen Claude generation; otherwise omit `model:` and let them inherit the session's model.
 
 ### Synthesize
 
 Collect ranked lists. Cross-agent corroboration amplifies score. **Provability is a hard filter** at this stage — anything below ~0.6 doesn't make the synthesis cut. Speculation without a path to a red test is wasted iteration.
 
-If the audit produces no hypothesis with provability ≥ 0.6, fall through to loop-driver Phase 8's empty-iteration branch.
+If the audit produces no hypothesis with provability ≥ 0.6, declare `LOOP-OUTCOME: empty` (build-cycle Phase 7) and end the iteration.
 
 ## Phase 1.5 — Bughunt quality gate
 
-Apply the loop-driver's quality-gate principle. For bughunt, the bar is:
+Apply build-cycle's quality-gate principle. For bughunt, the bar is:
 
 A candidate clears the gate only if **all** are true:
 
@@ -77,7 +77,7 @@ A candidate clears the gate only if **all** are true:
 
 If a candidate is borderline ("input feels reachable but I'd need to confirm"), present 2–3 candidates to the user via `AskUserQuestion` with reachability evidence for each.
 
-If no candidate clears the gate: report what was found and why each was rejected, then proceed to loop-driver Phase 8 as if the iteration were empty. Don't ship a speculative fix to a theoretically-reachable but practically-impossible bug.
+If no candidate clears the gate: report what was found and why each was rejected, then declare `LOOP-OUTCOME: gate_killed`. Don't ship a speculative fix to a theoretically-reachable but practically-impossible bug.
 
 ## Phase 3 — Implement
 
@@ -108,13 +108,13 @@ If the fix breaks other tests, **investigate before adjusting them.** A test rel
 
 ### `/ship` defaults
 
-When invoking `dev-skills:ship` (loop-driver Phase 4):
+When invoking `dev-skills:ship` (build-cycle Phase 4):
 - `--commit-type=fix` (almost always; `refactor` only if the fix is structural with no observable behavior delta).
 - `--issue=<N>` if the bug was already filed (search first: `gh issue list --search "<key symptom>"`).
 
 ## Specialization-specific boundaries
 
-(Additive to loop-driver's shared boundaries.)
+(Additive to build-cycle's shared boundaries.)
 
 - **Don't claim a bug without a red test.**
 - **Don't over-instrument tests.** Smallest input, sharpest assertion.
@@ -122,7 +122,7 @@ When invoking `dev-skills:ship` (loop-driver Phase 4):
 
 ## Specialization-specific escalation
 
-`AskUserQuestion` when (in addition to loop-driver's shared triggers):
+`AskUserQuestion` when (in addition to build-cycle's shared triggers):
 - Three candidates this iteration produced no red test (audit mis-calibration; switch dimensions or stop).
 - The bug crosses architectural lines and the fix could legitimately live in N places.
 - The bug is "by design" per a comment / memory entry — confirm before fixing.

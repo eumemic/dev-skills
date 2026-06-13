@@ -1,23 +1,23 @@
 ---
 name: kaizen
-description: Continuous accidental-complexity reduction — audit codebase against craftsmanship principles via parallel agents, pick highest-ROI target, simplify, hand off to /ship, run /retro, then loop. Use when invoked as `/kaizen`. Loops by default; pass `--once` for a single iteration. Pass `--auto` to merge automatically once CI is green; default is to wait for the user to merge in the GitHub UI. Project-agnostic; reads simplicity heuristics from CLAUDE.md and project memory.
+description: One iteration of accidental-complexity reduction — audit codebase against craftsmanship principles via parallel agents, pick highest-ROI target, simplify, hand off to /ship, run /retro, merge, declare the outcome. Use when invoked as `/kaizen` (runs one iteration); use `/loop kaizen` to run it as an autonomous loop. Pass `--auto` to merge automatically once CI is green; default is to wait for the user to merge in the GitHub UI. Project-agnostic; reads simplicity heuristics from CLAUDE.md and project memory.
 ---
 
-# /kaizen — continuous audit-and-simplify loop
+# /kaizen — one audit-and-simplify iteration
 
-You're driving an autonomous loop that scours the codebase for accidental complexity, ships the highest-ROI simplification, runs `/retro`, then either merges or waits.
+You run **one iteration**: scour the codebase for accidental complexity, ship the highest-ROI simplification, run `/retro`, merge (or hand to the user), and declare the outcome. `/loop kaizen` runs this on an autonomous loop.
 
-This skill is a thin specialization over the shared loop-driver framework. **Read `dev-skills:loop-driver` for the shared phases (branching, /ship handoff, /retro, merge, idle escalation, flag passthrough).** This file owns:
+This skill is a thin specialization over the shared **build-cycle** skeleton. **Read `dev-skills:build-cycle` for the shared iteration phases (branching, /ship handoff, /retro, merge, declaring the outcome).** Looping — cadence, idle escalation, re-arming — is owned by `/loop`. This file owns:
 
 - **Phase 1** — target acquisition (parallel-agent codebase audit).
 - **Phase 1.5** — the kaizen-specific quality gate.
 - **Phase 3** — the kaizen-specific implementation discipline.
 
-Everything else — flags, branching, `/ship` invocation, `/retro` pass, merge handling, idle escalation — lives in `loop-driver`.
+Everything else — flags, branching, `/ship` invocation, `/retro` pass, merge handling, and the closing `LOOP-OUTCOME` — lives in `build-cycle`; the loop that re-runs this iteration lives in `/loop`.
 
 ## Specialization-specific invariants
 
-(See loop-driver for the shared invariants — one PR per change, no scope expansion, fail hard, etc. These are *additional* to those.)
+(See build-cycle for the shared invariants — one PR per change, no scope expansion, fail hard, etc. These are *additional* to those.)
 
 - **Accidental complexity only** — defensive guards for model mistakes, fallbacks, retry loops that hide errors, multi-stage corrective pipelines, backwards-compat shims, near-duplicate code paths, state machines encoded across log scans. Don't rewrite legitimately complex domain logic that earns its lines.
 - **No new features, no behavior changes** — kaizen is structural. If the audit surfaces a real bug, surface it as a `/bughunt` candidate and move on. Don't fix it under a kaizen PR.
@@ -51,7 +51,7 @@ Pick 4–6 dimensions appropriate to the codebase. The standard set:
 - A length cap (under 400 words per response) so synthesis stays manageable.
 - A clear deliverable: ranked list with file:line references and a one-line rationale per finding.
 
-Use `subagent_type: general-purpose` for the audit agents. They run parallel via a single message with multiple `Agent` tool calls. If the loop was invoked with `--model=<value>` (see loop-driver flags), include `model: "<value>"` on each `Agent` call so every audit subagent runs on the chosen Claude generation; otherwise omit `model:` and let them inherit the session's model.
+Use `subagent_type: general-purpose` for the audit agents. They run parallel via a single message with multiple `Agent` tool calls. If invoked with `--model=<value>` (see build-cycle flags), include `model: "<value>"` on each `Agent` call so every audit subagent runs on the chosen Claude generation; otherwise omit `model:` and let them inherit the session's model.
 
 ### Synthesize
 
@@ -65,11 +65,11 @@ Before committing to a target, **read the actual file** (not just the agent's ex
 - Does the same logic appear inline in N call sites without a helper?
 - Does CLAUDE.md explicitly forbid the pattern?
 
-If the audit produces no candidate at the depth applied, fall through to loop-driver Phase 8's empty-iteration branch.
+If the audit produces no candidate at the depth applied, declare `LOOP-OUTCOME: empty` (build-cycle Phase 7) and end the iteration.
 
 ## Phase 1.5 — Kaizen quality gate
 
-Apply the loop-driver's quality-gate principle. For kaizen, the bar is:
+Apply build-cycle's quality-gate principle. For kaizen, the bar is:
 
 A candidate clears the gate only if **all** are true:
 
@@ -80,7 +80,7 @@ A candidate clears the gate only if **all** are true:
 
 If the top candidate fails the gate but a borderline candidate exists ("might be load-bearing"), present 2–3 options to the user via `AskUserQuestion` with rationale. Don't gamble on a contentious refactor.
 
-If no candidate clears the gate: report what was found and why each was rejected, then proceed to loop-driver Phase 8 as if the iteration were empty (the audit wasn't empty, but the iteration is non-productive — that's still an `--idle-count` increment). Don't ship a borderline change just because the audit produced output.
+If no candidate clears the gate: report what was found and why each was rejected, then declare `LOOP-OUTCOME: gate_killed` (the audit wasn't empty, but the iteration is non-productive — `/loop` treats it as an idle increment). Don't ship a borderline change just because the audit produced output.
 
 ## Phase 3 — Implement
 
@@ -94,13 +94,13 @@ Make the focused simplification. Keep it tight:
 
 ### `/ship` defaults
 
-When invoking `dev-skills:ship` (loop-driver Phase 4):
+When invoking `dev-skills:ship` (build-cycle Phase 4):
 - `--commit-type=refactor`
 - `--issue=<N>` not applicable.
 
 ## Specialization-specific boundaries
 
-(Additive to loop-driver's shared boundaries.)
+(Additive to build-cycle's shared boundaries.)
 
 - **Don't pick a target the user has already rejected this session** (a CLOSED PR within memory).
 - **Don't deep-refactor on the first iteration** of a fresh codebase audit. Smaller wins build calibration trust.
@@ -108,7 +108,7 @@ When invoking `dev-skills:ship` (loop-driver Phase 4):
 
 ## Specialization-specific escalation
 
-`AskUserQuestion` when (in addition to loop-driver's shared triggers):
+`AskUserQuestion` when (in addition to build-cycle's shared triggers):
 - Two top candidates are within ROI noise of each other.
 - The target straddles real-vs-accidental complexity (e.g., a corrective pipeline that *might* be needed for crash recovery).
 

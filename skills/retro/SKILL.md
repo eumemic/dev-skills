@@ -17,7 +17,7 @@ Reflect on a slice of the conversation, **identify only durable codifiable learn
 - **`--scope=session`** (default) — invoked standalone by the user. Analyzes the full conversation history. Action items always go to whichever repo they belong to, separately from any in-flight work.
 - **`--scope=pause`** — agent-initiated at a natural pause point (waiting on autodev/CI/monitor, mid-coffee in the conversation flow). Analyzes the slice since the last retro or, if none this session, since the conversation start. Behaves like `--scope=session` but with a stricter quality gate: pause-point retros run frequently, so noise is more costly.
 
-If neither flag is passed and there's no loop-driver caller, default to `session`. If invoked from a loop driver without `--scope`, that's a bug in the caller — assume `iteration` and continue.
+If neither flag is passed and there's no build-cycle caller, default to `session`. If invoked from build-cycle (or a `/loop` iteration) without `--scope`, that's a bug in the caller — assume `iteration` and continue.
 
 ## When to self-invoke (pause mode)
 
@@ -54,7 +54,7 @@ If no finding clears all three, the retro produces no actionable output. Report 
 Open-ended; pick the one that fits each finding:
 
 - **Memory entries** — feedback / project / reference / user types per the auto-memory schema. Best for: stable preferences, decisions with long horizons, pointers to external resources.
-- **Skill edits** — modifications to `loop-driver`, the three loop specializations, `/ship`, `/retro` itself, or any other skill that was active. Best for: workflow improvements that recur across iterations or sessions.
+- **Skill edits** — modifications to `/loop`, `build-cycle`, the iteration specializations (`/kaizen`, `/bughunt`, `/shovel-ready`, `/kaikaku`), `/ship`, `/retro` itself, or any other skill that was active. Best for: workflow improvements that recur across iterations or sessions.
 - **Scripts** — small CLI utilities or one-liners committed to the repo (or to `~/.claude/scripts/`) that automate a friction point. Best for: repeated multi-step shell sequences.
 - **Constellation issues** — feature requests filed on **any repo in the constellation**, not just the loop driver's target: aios, eumemic-ops, ant-proxy, autodev, dev-skills, aios-web. Best for: missing dev-infrastructure that, if it existed, would have made this iteration (or future iterations) faster. Examples worth filing:
   - autodev pipeline gaps surfaced during a real run (retry CLI, label hygiene, forward-reference handling).
