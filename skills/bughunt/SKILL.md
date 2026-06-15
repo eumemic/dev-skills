@@ -46,7 +46,8 @@ The standard set (pick what fits the codebase):
 8. **Time and timezone** — naive vs aware datetimes; DST; `now()` called inside a transaction returning a different value than elsewhere.
 9. **Query construction** — SQL string interpolation; missing parameterization; case-folding traps.
 10. **Idempotency** — retry paths that assume the operation didn't already succeed; webhook handlers without dedup.
-11. **Test-coverage gaps** — boundary cases not tested; mocks that diverge from real-system behavior.
+11. **Test-coverage gaps** — boundary cases not tested; mocks that diverge from real-system behavior (a unit test that mocks the very function whose logic is wrong passes forever and hides the bug — check that the layer asserting a behavior actually exercises the code that implements it).
+12. **Recently-merged feature code** — `git log` the last ~10–15 `feat:` commits and audit each newly-added code path for feature-logic errors: wrong field defaults, validation gaps, account-scoping omitted on a new endpoint, request/response-model drift, a partial / "stage N" migration leaving a mixed encode-decode state, a stale assumption a later commit silently falsified. Have the finder `git show` the actual merge commit, not just the file. **On a mature, heavily-swept codebase this is usually the highest-yield dimension** — the invariant/risk-pattern dimensions above are the most-audited code in the tree, so the freshest un-audited surface is the recent diff and the peripheral subsystems (connectors, CLI, MCP, sandbox internals) that get less bughunt attention than the core.
 
 ### Each agent's prompt should include
 
@@ -62,7 +63,9 @@ Use `subagent_type: general-purpose`. Run all agents parallel via a single messa
 
 Collect ranked lists. Cross-agent corroboration amplifies score. **Provability is a hard filter** at this stage — anything below ~0.6 doesn't make the synthesis cut. Speculation without a path to a red test is wasted iteration.
 
-If the audit produces no hypothesis with provability ≥ 0.6, declare `LOOP-OUTCOME: empty` (build-cycle Phase 7) and end the iteration.
+**If the invariant/risk-pattern dimensions (1–11) come up empty on a mature codebase, pivot to the recently-merged-feature surface (dimension 12) and the peripheral subsystems before declaring `empty`.** An empty invariant sweep on a heavily-audited core is a true negative *about the wrong surface*, not about the codebase — the bug, if there is one, is most likely in code merged since the last sweep. Run a second audit round targeted there (have finders surface their single strongest lead even when sub-threshold, so the synthesis sees near-misses rather than a bare empty set) before you conclude there's nothing to ship.
+
+If the audit — after that pivot — produces no hypothesis with provability ≥ 0.6, declare `LOOP-OUTCOME: empty` (build-cycle Phase 7) and end the iteration.
 
 ## Phase 1.5 — Bughunt quality gate
 
